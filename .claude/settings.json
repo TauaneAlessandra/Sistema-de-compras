@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx @tech-leads-club/agent-skills install --skill spec-driven-development)",
+      "Bash(npx @tech-leads-club/agent-skills list)",
+      "Bash(npx @tech-leads-club/agent-skills install --skill spec-driven)",
+      "Bash(npx @tech-leads-club/agent-skills install --skill sdd)",
+      "Bash(npx @tech-leads-club/agent-skills install --skill spec)",
+      "Bash(npx @tech-leads-club/agent-skills install --help)",
+      "Bash(npx @tech-leads-club/agent-skills --help)",
+      "Bash(npx @tech-leads-club/agent-skills list --help)",
+      "Bash(node -e \":*)",
+      "Read(//c/Users/Tauane/AppData/Local/npm-cache/_npx/**)",
+      "Bash(find /c/Users/Tauane/AppData/Local/npm-cache/_npx -path *tech-leads*)",
+      "Bash(npx @tech-leads-club/agent-skills install --skill tlc-spec-driven)"
+    ]
+  }
+}
