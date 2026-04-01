@@ -11,8 +11,9 @@
 // - Funções de login, logout e CRUD de usuários
 // ============================================================
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { User, SafeUser, UserRole } from '../types'
+import { createContext, useContext, useState, ReactNode } from 'react'
+import { User, SafeUser } from '../types'
+import { AuthRepository } from '../infrastructure/repositories/AuthRepository'
 
 // Define quais dados e funções o contexto vai expor.
 // Outros componentes que usarem useAuth() terão acesso a tudo isso.
@@ -44,84 +45,59 @@ const DEFAULT_USERS: User[] = [
 // O Provider é o componente que "envolve" a aplicação e fornece o contexto.
 // { children } representa todos os componentes filhos que ele envolve.
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // Estado do usuário logado (sem senha)
-  const [user, setUser] = useState<SafeUser | null>(null)
-  // Estado da lista completa de usuários
-  const [users, setUsers] = useState<User[]>([])
+  // Estado do usuário logado (sem senha) — inicializado via repositório
+  const [user, setUser] = useState<SafeUser | null>(() => AuthRepository.getSession())
 
-  // useEffect com [] roda apenas uma vez, quando o componente monta.
-  // Aqui carregamos os dados salvos no localStorage.
-  useEffect(() => {
-    // Tenta carregar usuários do localStorage
-    const stored = localStorage.getItem('sc_users')
-    if (!stored) {
-      // Primeira vez rodando: salva os usuários padrão
-      localStorage.setItem('sc_users', JSON.stringify(DEFAULT_USERS))
-      setUsers(DEFAULT_USERS)
-    } else {
-      // Já existe dados salvos: carrega do localStorage
-      setUsers(JSON.parse(stored))
-    }
-
-    // Verifica se havia uma sessão salva (usuário já estava logado)
-    const storedUser = localStorage.getItem('sc_current_user')
-    if (storedUser) setUser(JSON.parse(storedUser))
-  }, [])
+  // Estado da lista completa de usuários — inicializa com defaults se necessário
+  const [users, setUsers] = useState<User[]>(() =>
+    AuthRepository.initializeIfEmpty(DEFAULT_USERS)
+  )
 
   // Função de login — valida email, senha e se o usuário está ativo
   function login(email: string, password: string) {
-    // Sempre lê direto do localStorage para ter dados atualizados
-    const allUsers: User[] = JSON.parse(localStorage.getItem('sc_users') || '[]')
+    const allUsers = AuthRepository.getAllUsers()
     const found = allUsers.find((u) => u.email === email && u.password === password && u.active)
 
     if (found) {
       // Desestruturação com renaming: remove a senha e guarda o restante em safeUser
-      // "{ password: _pw, ...safeUser }" = pega password (chama de _pw para ignorar)
-      // e o spread (...safeUser) pega todos os outros campos
       const { password: _pw, ...safeUser } = found
       setUser(safeUser)
-      // Salva a sessão no localStorage para persistir após F5
-      localStorage.setItem('sc_current_user', JSON.stringify(safeUser))
+      AuthRepository.saveSession(safeUser)
       return { success: true }
     }
     return { success: false, message: 'Email ou senha inválidos.' }
   }
 
-  // Logout: limpa o estado e remove a sessão do localStorage
+  // Logout: limpa o estado e remove a sessão
   function logout() {
     setUser(null)
-    localStorage.removeItem('sc_current_user')
+    AuthRepository.clearSession()
   }
 
-  // Função auxiliar: salva a lista de usuários no localStorage E no state
+  // Função auxiliar: persiste usuários via repositório e atualiza o state
   function saveUsers(updated: User[]) {
-    localStorage.setItem('sc_users', JSON.stringify(updated))
+    AuthRepository.saveAllUsers(updated)
     setUsers(updated)
   }
 
   // Adiciona um novo usuário — verifica se o email já existe antes
-  // Omit<User, 'id' | 'active' | 'createdAt'> significa: recebe o User sem esses 3 campos
-  // (eles são gerados automaticamente aqui)
   function addUser(data: Omit<User, 'id' | 'active' | 'createdAt'>) {
-    const allUsers: User[] = JSON.parse(localStorage.getItem('sc_users') || '[]')
+    const allUsers = AuthRepository.getAllUsers()
     const exists = allUsers.find((u) => u.email === data.email)
     if (exists) return { success: false, message: 'Email já cadastrado.' }
     const newUser: User = {
-      ...data,                           // spread: copia todos os campos de data
-      id: crypto.randomUUID(),           // gera ID único universal
+      ...data,
+      id: crypto.randomUUID(),
       active: true,
       createdAt: new Date().toISOString(),
     }
-    saveUsers([...allUsers, newUser])    // adiciona ao final do array existente
+    saveUsers([...allUsers, newUser])
     return { success: true }
   }
 
   // Atualiza campos de um usuário existente
-  // Partial<User> significa: qualquer subconjunto dos campos de User
   function updateUser(id: string, data: Partial<User>) {
-    const allUsers: User[] = JSON.parse(localStorage.getItem('sc_users') || '[]')
-    // map: percorre o array e retorna um novo array
-    // Se o id bate, mescla os dados novos; senão, retorna o usuário sem alteração
+    const allUsers = AuthRepository.getAllUsers()
     saveUsers(allUsers.map((u) => (u.id === id ? { ...u, ...data } : u)))
     return { success: true }
   }
@@ -129,13 +105,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // "Deletar" na verdade desativa o usuário (soft delete)
   // Isso preserva o histórico das solicitações que ele criou
   function deleteUser(id: string) {
-    const allUsers: User[] = JSON.parse(localStorage.getItem('sc_users') || '[]')
+    const allUsers = AuthRepository.getAllUsers()
     saveUsers(allUsers.map((u) => (u.id === id ? { ...u, active: false } : u)))
   }
 
-  // Força a releitura dos usuários do localStorage para o state
+  // Força a releitura dos usuários do repositório para o state
   function refreshUsers() {
-    setUsers(JSON.parse(localStorage.getItem('sc_users') || '[]'))
+    setUsers(AuthRepository.getAllUsers())
   }
 
   // O Provider envolve os filhos e passa o valor do contexto

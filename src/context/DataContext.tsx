@@ -8,10 +8,17 @@
 // Em um sistema real, aqui chamaríamos uma API REST ou banco de dados.
 // ============================================================
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, ReactNode } from 'react'
 import {
   PurchaseRequest, Quotation, SupervisorApproval, FinancialApproval, SafeUser,
 } from '../types'
+import {
+  statusAfterAddQuotation,
+  statusAfterRemoveQuotation,
+  statusAfterSupervisorDecision,
+  statusAfterFinancialDecision,
+} from '../domain/workflow'
+import { PurchaseRequestRepository } from '../infrastructure/repositories/PurchaseRequestRepository'
 
 // Interface que descreve tudo o que o contexto fornece aos componentes
 interface DataContextValue {
@@ -31,21 +38,19 @@ interface DataContextValue {
 const DataContext = createContext<DataContextValue | null>(null)
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  // Lista de solicitações em memória (state do React)
-  const [requests, setRequests] = useState<PurchaseRequest[]>([])
+  // Lista de solicitações em memória — lazy initializer via repositório
+  const [requests, setRequests] = useState<PurchaseRequest[]>(() =>
+    PurchaseRequestRepository.getAll()
+  )
 
-  // Carrega os dados ao montar o componente
-  useEffect(() => { loadRequests() }, [])
-
-  // Lê as solicitações do localStorage e atualiza o state
+  // Lê as solicitações do repositório e atualiza o state
   function loadRequests() {
-    const stored = localStorage.getItem('sc_requests')
-    if (stored) setRequests(JSON.parse(stored))
+    setRequests(PurchaseRequestRepository.getAll())
   }
 
-  // Salva o array atualizado no localStorage e no state
+  // Salva o array atualizado via repositório e no state
   function saveRequests(updated: PurchaseRequest[]) {
-    localStorage.setItem('sc_requests', JSON.stringify(updated))
+    PurchaseRequestRepository.saveAll(updated)
     setRequests(updated)
   }
 
@@ -54,39 +59,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
     data: Omit<PurchaseRequest, 'id' | 'status' | 'requesterId' | 'requesterName' | 'createdAt' | 'quotations' | 'supervisorApproval' | 'financialApproval'>,
     user: SafeUser
   ): PurchaseRequest {
-    // Lê o array atual direto do localStorage (evita estado desatualizado)
-    const all: PurchaseRequest[] = JSON.parse(localStorage.getItem('sc_requests') || '[]')
     const newReq: PurchaseRequest = {
-      ...data,                                  // copia os campos do formulário
-      id: crypto.randomUUID(),                  // ID único
-      status: 'pending_quotation',              // sempre começa aqui no fluxo
+      ...data,
+      id: crypto.randomUUID(),
+      status: 'pending_quotation',
       requesterId: user.id,
       requesterName: user.name,
       createdAt: new Date().toISOString(),
-      quotations: [],                           // começa sem cotações
-      supervisorApproval: null,                 // null até o supervisor agir
+      quotations: [],
+      supervisorApproval: null,
       financialApproval: null,
     }
-    // Adiciona no início do array (mais recente primeiro)
-    saveRequests([newReq, ...all])
+    PurchaseRequestRepository.add(newReq)
+    setRequests(PurchaseRequestRepository.getAll())
     return newReq
   }
 
   // Adiciona uma cotação a uma solicitação existente.
-  // Quando atingir 3 cotações, o status avança automaticamente
-  // para "pending_supervisor" (regra de negócio do fluxo).
+  // Quando atingir MAX_QUOTATIONS, o status avança para pending_supervisor.
   function addQuotation(
     requestId: string,
     quotation: Omit<Quotation, 'id' | 'buyerId' | 'buyerName' | 'createdAt'>,
     user: SafeUser
   ) {
-    const all: PurchaseRequest[] = JSON.parse(localStorage.getItem('sc_requests') || '[]')
-
-    // map percorre todas as solicitações.
-    // Só modifica a que tem o ID correto, retorna as outras sem alteração.
+    const all = PurchaseRequestRepository.getAll()
     saveRequests(all.map((r) => {
       if (r.id !== requestId) return r
-
       const newQuotation: Quotation = {
         ...quotation,
         id: crypto.randomUUID(),
@@ -95,37 +93,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
         createdAt: new Date().toISOString(),
       }
       const quotations = [...r.quotations, newQuotation]
-
-      // Regra de negócio: 3 cotações → avança para aprovação do supervisor
-      return { ...r, quotations, status: quotations.length >= 3 ? 'pending_supervisor' : r.status }
+      return { ...r, quotations, status: statusAfterAddQuotation(r.status, quotations.length) }
     }))
   }
 
-  // Remove uma cotação e, se ficou com menos de 3, volta o status
+  // Remove uma cotação e, se ficou abaixo do mínimo, reverte o status
   function removeQuotation(requestId: string, quotationId: string) {
-    const all: PurchaseRequest[] = JSON.parse(localStorage.getItem('sc_requests') || '[]')
+    const all = PurchaseRequestRepository.getAll()
     saveRequests(all.map((r) => {
       if (r.id !== requestId) return r
-      // filter cria um novo array sem o item com o ID a remover
       const quotations = r.quotations.filter((q) => q.id !== quotationId)
-      return { ...r, quotations, status: quotations.length < 3 ? 'pending_quotation' : r.status }
+      return { ...r, quotations, status: statusAfterRemoveQuotation(r.status, quotations.length) }
     }))
   }
 
-  // Registra a decisão do supervisor e avança o status:
-  // approved=true  → 'pending_financial' (vai para o financeiro)
-  // approved=false → 'rejected' (reprovado, fim do fluxo)
+  // Registra a decisão do supervisor
   function supervisorApprove(
     requestId: string,
     data: Omit<SupervisorApproval, 'supervisorId' | 'supervisorName' | 'approvedAt'>,
     user: SafeUser
   ) {
-    const all: PurchaseRequest[] = JSON.parse(localStorage.getItem('sc_requests') || '[]')
+    const all = PurchaseRequestRepository.getAll()
     saveRequests(all.map((r) => {
       if (r.id !== requestId) return r
       return {
         ...r,
-        status: data.approved ? 'pending_financial' : 'rejected',
+        status: statusAfterSupervisorDecision(data.approved),
         supervisorApproval: {
           ...data,
           supervisorId: user.id,
@@ -136,20 +129,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }))
   }
 
-  // Registra a decisão do financeiro — etapa final do fluxo:
-  // approved=true  → 'approved' (compra autorizada!)
-  // approved=false → 'rejected' (reprovado pelo financeiro)
+  // Registra a decisão do financeiro — etapa final do fluxo
   function financialApprove(
     requestId: string,
     data: Omit<FinancialApproval, 'financialId' | 'financialName' | 'approvedAt'>,
     user: SafeUser
   ) {
-    const all: PurchaseRequest[] = JSON.parse(localStorage.getItem('sc_requests') || '[]')
+    const all = PurchaseRequestRepository.getAll()
     saveRequests(all.map((r) => {
       if (r.id !== requestId) return r
       return {
         ...r,
-        status: data.approved ? 'approved' : 'rejected',
+        status: statusAfterFinancialDecision(data.approved),
         financialApproval: {
           ...data,
           financialId: user.id,
@@ -160,11 +151,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }))
   }
 
-  // Busca uma solicitação pelo ID — retorna null se não encontrar
-  // O operador "??" significa: "se find retornar undefined, retorne null"
+  // Busca uma solicitação pelo ID via repositório
   function getRequestById(id: string): PurchaseRequest | null {
-    const all: PurchaseRequest[] = JSON.parse(localStorage.getItem('sc_requests') || '[]')
-    return all.find((r) => r.id === id) ?? null
+    return PurchaseRequestRepository.getById(id)
   }
 
   return (

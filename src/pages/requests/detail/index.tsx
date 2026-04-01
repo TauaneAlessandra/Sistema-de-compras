@@ -57,7 +57,7 @@ export default function RequestDetail() {
   }
 
   // Recarrega quando o ID na URL muda (navegação entre solicitações)
-  useEffect(() => { refresh() }, [id])
+  useEffect(() => { refresh() }, [id]) // eslint-disable-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
 
   // Solicitação não encontrada — exibe mensagem
   if (!request) {

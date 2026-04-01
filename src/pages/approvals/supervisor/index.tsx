@@ -28,7 +28,7 @@ export default function ApprovalSupervisor() {
 
   // Chamada quando o ApprovalCard confirma a decisão
   function handleApprove(requestId: string, data: ApprovalData) {
-    supervisorApprove(requestId, data, user)
+    supervisorApprove(requestId, data, user!)
     loadRequests()  // recarrega para remover o card aprovado da lista
   }
 

@@ -47,9 +47,9 @@ export default function Requests() {
   useEffect(() => { loadRequests() }, [])
 
   // Filtra as solicitações visíveis conforme o perfil do usuário
-  let visible = user.role === 'requester'
-    ? requests.filter((r) => r.requesterId === user.id)  // solicitante: só as suas
-    : requests                                             // outros: todas
+  let visible = user!.role === 'requester'
+    ? requests.filter((r) => r.requesterId === user!.id)  // solicitante: só as suas
+    : requests                                              // outros: todas
 
   // Filtro de busca por texto — toLowerCase para busca case-insensitive
   if (search.trim()) {
@@ -73,7 +73,7 @@ export default function Requests() {
           <p className="text-slate-500 text-sm mt-0.5">{visible.length} solicitação(ões)</p>
         </div>
         {/* Botão "Nova" só aparece para quem pode criar solicitações */}
-        {(user.role === 'requester' || user.role === 'admin') && (
+        {(user!.role === 'requester' || user!.role === 'admin') && (
           <Link
             to="/nova-solicitacao"
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors"
