@@ -12,6 +12,79 @@
 
 import { RequestStatus, UserRole } from '../types'
 
+// ── Tabela declarativa de transições (Seção 10 do design) ───
+//
+// Mapeia cada evento de domínio ao seu estado de origem,
+// estado de destino e guarda opcional.
+// Serve como documentação executável e pode ser usada por
+// qualquer mecanismo que precise validar transições em tempo
+// de execução ou gerar relatórios de fluxo.
+
+export type DomainEvent =
+  | 'REQUEST_CREATED'
+  | 'AREA_APPROVED'
+  | 'AREA_REJECTED'
+  | 'QUOTATION_ADDED'
+  | 'QUOTATION_THRESHOLD_REACHED'
+  | 'QUOTATION_REMOVED'
+  | 'QUOTATION_BELOW_THRESHOLD'
+  | 'STOCK_CONFIRMED'
+  | 'SUPERVISOR_APPROVED'
+  | 'SUPERVISOR_REJECTED'
+  | 'FINANCIAL_APPROVED'
+  | 'FINANCIAL_REJECTED'
+
+export type TransitionRule = {
+  from: RequestStatus
+  event: DomainEvent
+  to: RequestStatus
+  guard?: (ctx: { validQuotationsCount?: number }) => boolean
+}
+
+export const TRANSITIONS: TransitionRule[] = [
+  // Criação → área ou cotação (dependendo do perfil do solicitante)
+  { from: 'draft', event: 'AREA_APPROVED',    to: 'pending_area_approval' }, // n/a: placeholder para not-area-manager
+  { from: 'draft', event: 'QUOTATION_ADDED',  to: 'pending_quotation' },     // via submit (area_manager)
+
+  // Aprovação de área
+  { from: 'pending_area_approval', event: 'AREA_APPROVED', to: 'pending_quotation' },
+  { from: 'pending_area_approval', event: 'AREA_REJECTED', to: 'rejected' },
+
+  // Cotações
+  {
+    from: 'pending_quotation',
+    event: 'QUOTATION_THRESHOLD_REACHED',
+    to: 'pending_supervisor',
+    guard: (ctx) => (ctx.validQuotationsCount ?? 0) >= MIN_QUOTATIONS_TO_ADVANCE,
+  },
+  {
+    from: 'pending_supervisor',
+    event: 'QUOTATION_BELOW_THRESHOLD',
+    to: 'pending_quotation',
+    guard: (ctx) => (ctx.validQuotationsCount ?? 0) < MIN_QUOTATIONS_TO_ADVANCE,
+  },
+
+  // Estoque
+  { from: 'pending_quotation',  event: 'STOCK_CONFIRMED', to: 'fulfilled_by_stock' },
+  { from: 'pending_supervisor', event: 'STOCK_CONFIRMED', to: 'fulfilled_by_stock' },
+
+  // Supervisor
+  { from: 'pending_supervisor', event: 'SUPERVISOR_APPROVED', to: 'pending_financial' },
+  { from: 'pending_supervisor', event: 'SUPERVISOR_REJECTED', to: 'rejected' },
+
+  // Financeiro
+  { from: 'pending_financial', event: 'FINANCIAL_APPROVED', to: 'approved' },
+  { from: 'pending_financial', event: 'FINANCIAL_REJECTED', to: 'rejected' },
+]
+
+/** Encontra a regra de transição para um dado estado + evento. */
+export function findTransition(
+  from: RequestStatus,
+  event: DomainEvent
+): TransitionRule | undefined {
+  return TRANSITIONS.find((t) => t.from === from && t.event === event)
+}
+
 // Número mínimo de cotações para avançar para pending_supervisor.
 // Não há máximo — o spec permite mais de 3.
 export const MIN_QUOTATIONS_TO_ADVANCE = 3

@@ -33,7 +33,7 @@ interface DataContextValue {
 
   createRequest: (data: Omit<PurchaseRequest, 'id' | 'status' | 'requesterId' | 'requesterName' | 'createdAt' | 'quotations' | 'needsAreaApproval' | 'areaApproval' | 'stockFulfilled' | 'supervisorApproval' | 'financialApproval' | 'history'>, user: SafeUser) => PurchaseRequest
   addQuotation: (requestId: string, quotation: Omit<Quotation, 'id' | 'buyerId' | 'buyerName' | 'createdAt'>, user: SafeUser) => void
-  removeQuotation: (requestId: string, quotationId: string, user: SafeUser) => void
+  removeQuotation: (requestId: string, quotationId: string, user: SafeUser, reason: string) => void
   areaApprove: (requestId: string, data: { approved: boolean; observation: string }, user: SafeUser) => void
   supervisorApprove: (requestId: string, data: Omit<SupervisorApproval, 'supervisorId' | 'supervisorName' | 'approvedAt'>, user: SafeUser) => void
   financialApprove: (requestId: string, data: Omit<FinancialApproval, 'financialId' | 'financialName' | 'approvedAt'>, user: SafeUser) => void
@@ -51,12 +51,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     PurchaseRequestRepository.getAll()
   )
 
-  // Cria uma entrada de auditoria para qualquer evento de negócio
+  // Cria uma entrada de auditoria para qualquer evento de negócio.
+  // fromStatus/toStatus registram a transição de estado conforme Seção 7 do design.
   function makeEvent(
     type: AuditEventType,
     user: SafeUser,
     observation?: string,
-    metadata?: Record<string, string>
+    metadata?: Record<string, string>,
+    fromStatus?: import('../types').RequestStatus,
+    toStatus?: import('../types').RequestStatus
   ): AuditEvent {
     return {
       id: crypto.randomUUID(),
@@ -65,6 +68,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       actorName: user.name,
       actorRole: user.role,
       timestamp: new Date().toISOString(),
+      fromStatus,
+      toStatus,
       observation,
       metadata,
     }
@@ -109,10 +114,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     saveRequests(all.map((r) => {
       if (r.id !== requestId) return r
       const isAreaManager = user.role === 'area_manager'
-      const event = makeEvent('submitted', user)
+      const toStatus = statusAfterSubmission(isAreaManager)
+      const event = makeEvent('submitted', user, undefined, undefined, r.status, toStatus)
       return {
         ...r,
-        status: statusAfterSubmission(isAreaManager),
+        status: toStatus,
         history: [...(r.history ?? []), event],
       }
     }))
@@ -134,33 +140,35 @@ export function DataProvider({ children }: { children: ReactNode }) {
         createdAt: new Date().toISOString(),
       }
       const quotations = [...r.quotations, newQuotation]
+      const toStatus = statusAfterAddQuotation(r.status, quotations.length)
       const event = makeEvent('quotation_added', user, undefined, {
         quotationId: newQuotation.id,
         supplier: newQuotation.supplier,
-      })
+      }, r.status, toStatus)
       return {
         ...r,
         quotations,
-        status: statusAfterAddQuotation(r.status, quotations.length),
+        status: toStatus,
         history: [...(r.history ?? []), event],
       }
     }))
   }
 
-  function removeQuotation(requestId: string, quotationId: string, user: SafeUser) {
+  function removeQuotation(requestId: string, quotationId: string, user: SafeUser, reason: string) {
     const all = PurchaseRequestRepository.getAll()
     saveRequests(all.map((r) => {
       if (r.id !== requestId) return r
       const removed = r.quotations.find((q) => q.id === quotationId)
       const quotations = r.quotations.filter((q) => q.id !== quotationId)
-      const event = makeEvent('quotation_removed', user, undefined, {
+      const toStatus = statusAfterRemoveQuotation(r.status, quotations.length)
+      const event = makeEvent('quotation_removed', user, reason, {
         quotationId,
         supplier: removed?.supplier ?? '',
-      })
+      }, r.status, toStatus)
       return {
         ...r,
         quotations,
-        status: statusAfterRemoveQuotation(r.status, quotations.length),
+        status: toStatus,
         history: [...(r.history ?? []), event],
       }
     }))
@@ -174,14 +182,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const all = PurchaseRequestRepository.getAll()
     saveRequests(all.map((r) => {
       if (r.id !== requestId) return r
+      const toStatus = statusAfterAreaDecision(data.approved)
       const event = makeEvent(
         data.approved ? 'area_approved' : 'area_rejected',
         user,
-        data.observation
+        data.observation,
+        undefined,
+        r.status,
+        toStatus
       )
       return {
         ...r,
-        status: statusAfterAreaDecision(data.approved),
+        status: toStatus,
         areaApproval: {
           approved: data.approved,
           observation: data.observation,
@@ -202,14 +214,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const all = PurchaseRequestRepository.getAll()
     saveRequests(all.map((r) => {
       if (r.id !== requestId) return r
+      const toStatus = statusAfterSupervisorDecision(data.approved)
       const event = makeEvent(
         data.approved ? 'supervisor_approved' : 'supervisor_rejected',
         user,
-        data.observation
+        data.observation,
+        undefined,
+        r.status,
+        toStatus
       )
       return {
         ...r,
-        status: statusAfterSupervisorDecision(data.approved),
+        status: toStatus,
         supervisorApproval: {
           ...data,
           supervisorId: user.id,
@@ -227,10 +243,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
     user: SafeUser
   ) {
     const all = PurchaseRequestRepository.getAll()
+    const requestBefore = PurchaseRequestRepository.getById(requestId)
+    const fromStatus = requestBefore?.status
+    const toStatus = statusAfterFinancialDecision(data.approved)
     const financialEvent = makeEvent(
       data.approved ? 'financial_approved' : 'financial_rejected',
       user,
-      data.observation
+      data.observation,
+      undefined,
+      fromStatus,
+      toStatus
     )
 
     let osEvent: AuditEvent | null = null
@@ -269,10 +291,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const all = PurchaseRequestRepository.getAll()
     saveRequests(all.map((r) => {
       if (r.id !== requestId) return r
-      const event = makeEvent('fulfilled_by_stock', user, observation)
+      const toStatus = statusAfterStockConfirmation()
+      const event = makeEvent('fulfilled_by_stock', user, observation, undefined, r.status, toStatus)
       return {
         ...r,
-        status: statusAfterStockConfirmation(),
+        status: toStatus,
         stockFulfilled: true,
         stockObservation: observation,
         history: [...(r.history ?? []), event],

@@ -61,6 +61,8 @@ export interface AuditEvent {
   actorName: string
   actorRole: UserRole
   timestamp: string                    // ISO 8601
+  fromStatus?: RequestStatus           // estado anterior (toda transição registra)
+  toStatus?: RequestStatus             // estado novo (toda transição registra)
   observation?: string                 // aprovações, rejeições, estoque
   metadata?: Record<string, string>    // ex: { quotationId, supplier }
 }
@@ -77,15 +79,24 @@ export interface SafeUser {
   createdAt: string
 }
 
+// Forma de pagamento aceita numa cotação
+export type QuotationPaymentMethod = 'pix' | 'cash' | 'boleto' | 'credit'
+
 // Uma cotação feita pelo Comprador com dados de um fornecedor
 export interface Quotation {
   id: string
-  supplier: string          // Nome do fornecedor
-  price: number             // Preço total (number, não string)
-  deliveryDays: number      // Prazo de entrega em dias
+  supplier: string           // Nome da loja/fornecedor
+  phone: string              // Telefone de contato
+  cnpj: string               // CNPJ do fornecedor
+  price: number              // Preço total (number, não string)
+  deliveryDays: number       // Prazo de entrega em dias
+  paymentMethod: QuotationPaymentMethod  // Forma de pagamento
+  boletoVencimento?: string  // Boleto: data de vencimento (YYYY-MM-DD)
+  boletoParcelas?: number    // Boleto parcelado: nº de parcelas
+  creditParcelas?: number    // Crédito: nº de parcelas
   observations: string
-  supplierAddress?: string  // Endereço/localização do fornecedor (opcional)
-  buyerId: string           // Quem registrou a cotação
+  supplierAddress?: string   // Endereço/localização do fornecedor (opcional)
+  buyerId: string            // Quem registrou a cotação
   buyerName: string
   createdAt: string
 }

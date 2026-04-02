@@ -18,8 +18,18 @@ import {
   ArrowLeft, Plus, Trash2, Clock, CheckCircle2, XCircle,
   FileSearch, BadgeDollarSign, DollarSign, Truck,
   MessageSquare, User, Calendar, Package, History,
-  ShoppingCart,
+  ShoppingCart, FileText,
 } from 'lucide-react'
+import type { UserRole } from '../../../types'
+
+const ROLE_LABELS: Record<UserRole, string> = {
+  admin: 'Admin',
+  requester: 'Solicitante',
+  area_manager: 'Resp. de Área',
+  buyer: 'Compras',
+  supervisor: 'Dir. Financeiro',
+  financial: 'Financeiro',
+}
 import QuotationForm from './QuotationForm'
 
 interface StatusInfo { label: string; color: string; icon: ReactNode }
@@ -88,6 +98,10 @@ export default function RequestDetail() {
   // Controla o formulário inline de encerramento por estoque
   const [showStockForm, setShowStockForm] = useState(false)
   const [stockObservation, setStockObservation] = useState('')
+  // Remoção de cotação: armazena o ID em remoção e a justificativa
+  const [removingQuotationId, setRemovingQuotationId] = useState<string | null>(null)
+  const [removalReason, setRemovalReason] = useState('')
+  const [removalError, setRemovalError] = useState('')
 
   function refresh() {
     loadRequests()
@@ -100,6 +114,16 @@ export default function RequestDetail() {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-slate-400">Solicitação não encontrada.</p>
+      </div>
+    )
+  }
+
+  // 7.1 — Apenas o dono ou perfis privilegiados podem visualizar
+  const isPrivileged = user?.role !== 'requester'
+  if (!isPrivileged && request.requesterId !== user?.id) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-slate-400">Acesso não autorizado.</p>
       </div>
     )
   }
@@ -127,10 +151,18 @@ export default function RequestDetail() {
   }
 
   function handleRemoveQuotation(qid: string) {
-    if (confirm('Remover esta cotação?')) {
-      removeQuotation(request!.id, qid, user!)
-      refresh()
-    }
+    setRemovingQuotationId(qid)
+    setRemovalReason('')
+    setRemovalError('')
+  }
+
+  function confirmRemoveQuotation() {
+    if (!removalReason.trim()) { setRemovalError('Justificativa obrigatória.'); return }
+    removeQuotation(request!.id, removingQuotationId!, user!, removalReason)
+    setRemovingQuotationId(null)
+    setRemovalReason('')
+    setRemovalError('')
+    refresh()
   }
 
   function handleSubmitRequest() {
@@ -348,14 +380,14 @@ export default function RequestDetail() {
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-semibold text-slate-500">#{i + 1}</span>
                     <p className="text-sm font-semibold text-slate-800">{q.supplier}</p>
                     {selectedQuotation?.id === q.id && (
                       <span className="text-xs bg-green-600 text-white px-2 py-0.5 rounded-full">Selecionada</span>
                     )}
                   </div>
-                  <div className="flex items-center gap-4 mt-2 text-sm">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm">
                     <span className="flex items-center gap-1 text-green-700 font-semibold">
                       <DollarSign size={14} />R$ {q.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </span>
@@ -363,15 +395,52 @@ export default function RequestDetail() {
                       <Truck size={14} />{q.deliveryDays} dias
                     </span>
                   </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1 text-xs text-slate-500">
+                    {q.phone && <span>Tel: {q.phone}</span>}
+                    {q.cnpj && <span>CNPJ: {q.cnpj}</span>}
+                    {q.paymentMethod && (
+                      <span>
+                        Pgto: {q.paymentMethod === 'pix' ? 'PIX' : q.paymentMethod === 'cash' ? 'Dinheiro' : q.paymentMethod === 'boleto' ? `Boleto${q.boletoParcelas ? ` ${q.boletoParcelas}x` : ''}${q.boletoVencimento ? ` (venc. ${new Date(q.boletoVencimento + 'T12:00:00').toLocaleDateString('pt-BR')})` : ''}` : `Crédito ${q.creditParcelas}x`}
+                      </span>
+                    )}
+                  </div>
                   {q.observations && <p className="text-xs text-slate-500 mt-1">Obs: {q.observations}</p>}
                   <p className="text-xs text-slate-400 mt-1">Registrado por {q.buyerName}</p>
                 </div>
-                {canRemoveQuotation && (
+                {canRemoveQuotation && removingQuotationId !== q.id && (
                   <button onClick={() => handleRemoveQuotation(q.id)} className="text-slate-400 hover:text-red-500 p-1">
                     <Trash2 size={15} />
                   </button>
                 )}
               </div>
+              {/* Formulário inline de justificativa de remoção */}
+              {removingQuotationId === q.id && (
+                <div className="mt-3 pt-3 border-t border-slate-200 space-y-2">
+                  <p className="text-xs font-semibold text-red-700">Justifique a remoção desta cotação:</p>
+                  <textarea
+                    value={removalReason}
+                    onChange={(e) => { setRemovalReason(e.target.value); setRemovalError('') }}
+                    placeholder="Motivo da remoção..."
+                    rows={2}
+                    className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 resize-none ${removalError ? 'border-red-400' : 'border-slate-300'}`}
+                  />
+                  {removalError && <p className="text-xs text-red-500">{removalError}</p>}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { setRemovingQuotationId(null); setRemovalReason(''); setRemovalError('') }}
+                      className="flex-1 border border-slate-300 text-slate-600 hover:bg-slate-50 py-1.5 rounded-lg text-xs font-medium"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={confirmRemoveQuotation}
+                      className="flex-1 bg-red-600 hover:bg-red-700 text-white py-1.5 rounded-lg text-xs font-semibold"
+                    >
+                      Confirmar Remoção
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -473,7 +542,7 @@ export default function RequestDetail() {
                   <p className="text-sm font-medium text-slate-800">{AUDIT_LABELS[event.type]}</p>
                   <p className="text-xs text-slate-500 mt-0.5">
                     {event.actorName}
-                    <span className="text-slate-400"> ({event.actorRole})</span>
+                    <span className="text-slate-400"> ({ROLE_LABELS[event.actorRole]})</span>
                     {' • '}
                     {new Date(event.timestamp).toLocaleString('pt-BR', {
                       day: '2-digit', month: '2-digit', year: 'numeric',
@@ -483,8 +552,13 @@ export default function RequestDetail() {
                   {event.metadata?.supplier && (
                     <p className="text-xs text-slate-500 mt-0.5">Fornecedor: {event.metadata.supplier}</p>
                   )}
+                  {event.metadata?.osNumber && (
+                    <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+                      <FileText size={11} />OS: <span className="font-mono font-medium text-slate-700">{event.metadata.osNumber}</span>
+                    </p>
+                  )}
                   {event.observation && (
-                    <p className="text-xs text-slate-500 mt-0.5 italic">"{event.observation}"</p>
+                    <p className="text-xs text-slate-600 mt-0.5 italic">"{event.observation}"</p>
                   )}
                 </div>
               </li>

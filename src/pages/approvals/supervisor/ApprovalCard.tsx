@@ -22,6 +22,9 @@ const supervisorApprovalSchema = z.object({
   if (data.approved && !data.selectedQuotationId) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Selecione um fornecedor para aprovar.', path: ['selectedQuotationId'] })
   }
+  if (!data.approved && !data.observation.trim()) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Motivo é obrigatório ao reprovar.', path: ['observation'] })
+  }
   if (data.observation.trim().length > 0 && data.observation.trim().length < 5) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Mínimo 5 caracteres.', path: ['observation'] })
   }
@@ -118,7 +121,7 @@ export default function ApprovalCard({ request, onApprove }: Props) {
           {/* Campo de observação — opcional */}
           <div>
             <label className="text-xs font-semibold text-slate-500 mb-1 flex items-center gap-1">
-              <MessageSquare size={12} /> Observação (opcional)
+              <MessageSquare size={12} /> Observação <span className="text-slate-400">(obrigatório ao reprovar)</span>
             </label>
             <textarea
               value={observation}

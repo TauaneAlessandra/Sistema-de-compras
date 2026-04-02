@@ -49,6 +49,7 @@ export default function FinancialCard({ request, onApprove }: Props) {
   const [paymentTerms, setPaymentTerms] = useState('')
   const [supplierBankInfo, setSupplierBankInfo] = useState('')
   const [observation, setObservation] = useState('')
+  const [acknowledged, setAcknowledged] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [error, setError] = useState('')
 
@@ -59,6 +60,10 @@ export default function FinancialCard({ request, onApprove }: Props) {
     : null
 
   function handleSubmit(approved: boolean) {
+    if (approved && !acknowledged) {
+      setError('Confirme a ciência do histórico antes de aprovar.')
+      return
+    }
     const result = financialApprovalSchema.safeParse({ approved, purchaseDate, paymentMethod, paymentTerms, supplierBankInfo, observation })
     if (!result.success) {
       const fieldErrors: Record<string, string> = {}
@@ -216,6 +221,19 @@ export default function FinancialCard({ request, onApprove }: Props) {
             />
             {errors.observation && <p className="text-xs text-red-500 mt-0.5">{errors.observation}</p>}
           </div>
+
+          {/* Confirmação de ciência — obrigatória para aprovar */}
+          <label className="flex items-start gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={acknowledged}
+              onChange={(e) => { setAcknowledged(e.target.checked); setError('') }}
+              className="mt-0.5"
+            />
+            <span className="text-xs text-slate-700">
+              Declaro ciência de todo o histórico desta solicitação e confirmo a aprovação para compra.
+            </span>
+          </label>
 
           {error && <p className="text-xs text-red-500">{error}</p>}
 
