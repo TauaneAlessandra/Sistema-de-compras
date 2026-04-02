@@ -11,15 +11,24 @@
 import { useState } from 'react'
 import { z } from 'zod'
 import { PurchaseRequest, FinancialApproval } from '../../../types'
-import { DollarSign, Truck, Check, X, MessageSquare, ChevronDown, ChevronUp, Calendar } from 'lucide-react'
+import { DollarSign, Truck, Check, X, MessageSquare, ChevronDown, ChevronUp, Calendar, CreditCard, Clock, Building2 } from 'lucide-react'
 
 const financialApprovalSchema = z.object({
   approved: z.boolean(),
   purchaseDate: z.string(),
+  paymentMethod: z.string(),
+  paymentTerms: z.string(),
+  supplierBankInfo: z.string(),
   observation: z.string(),
 }).superRefine((data, ctx) => {
   if (data.approved && !data.purchaseDate) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Informe a data prevista para compra.', path: ['purchaseDate'] })
+  }
+  if (data.approved && !data.paymentMethod.trim()) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Forma de pagamento obrigatória.', path: ['paymentMethod'] })
+  }
+  if (data.approved && !data.paymentTerms.trim()) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Prazo de pagamento obrigatório.', path: ['paymentTerms'] })
   }
   if (data.observation.trim().length > 0 && data.observation.trim().length < 5) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Mínimo 5 caracteres.', path: ['observation'] })
@@ -36,7 +45,11 @@ interface Props {
 export default function FinancialCard({ request, onApprove }: Props) {
   const [open, setOpen] = useState(false)
   const [purchaseDate, setPurchaseDate] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState('')
+  const [paymentTerms, setPaymentTerms] = useState('')
+  const [supplierBankInfo, setSupplierBankInfo] = useState('')
   const [observation, setObservation] = useState('')
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const [error, setError] = useState('')
 
   // Recupera a cotação selecionada pelo supervisor para exibir no resumo.
@@ -46,10 +59,20 @@ export default function FinancialCard({ request, onApprove }: Props) {
     : null
 
   function handleSubmit(approved: boolean) {
-    const result = financialApprovalSchema.safeParse({ approved, purchaseDate, observation })
-    if (!result.success) { setError(result.error.issues[0].message); return }
+    const result = financialApprovalSchema.safeParse({ approved, purchaseDate, paymentMethod, paymentTerms, supplierBankInfo, observation })
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {}
+      result.error.issues.forEach((issue) => {
+        const key = String(issue.path[0])
+        if (!fieldErrors[key]) fieldErrors[key] = issue.message
+      })
+      setErrors(fieldErrors)
+      setError(result.error.issues[0].message)
+      return
+    }
+    setErrors({})
     setError('')
-    onApprove(request.id, { approved, purchaseDate, observation })
+    onApprove(request.id, { approved, purchaseDate, paymentMethod, paymentTerms, supplierBankInfo: supplierBankInfo || undefined, observation })
   }
 
   return (
@@ -129,9 +152,53 @@ export default function FinancialCard({ request, onApprove }: Props) {
               type="date"
               value={purchaseDate}
               onChange={(e) => setPurchaseDate(e.target.value)}
-              // toISOString().split('T')[0] pega apenas "YYYY-MM-DD"
               min={new Date().toISOString().split('T')[0]}
-              className={`mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${error ? 'border-red-400' : 'border-slate-300'}`}
+              className={`mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.purchaseDate ? 'border-red-400' : 'border-slate-300'}`}
+            />
+            {errors.purchaseDate && <p className="text-xs text-red-500 mt-0.5">{errors.purchaseDate}</p>}
+          </div>
+
+          {/* Forma de pagamento */}
+          <div>
+            <label className="text-xs font-semibold text-slate-500 mb-1 flex items-center gap-1">
+              <CreditCard size={12} /> Forma de pagamento *
+            </label>
+            <input
+              type="text"
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+              placeholder="Ex: PIX, Boleto, Cartão, Transferência..."
+              className={`mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.paymentMethod ? 'border-red-400' : 'border-slate-300'}`}
+            />
+            {errors.paymentMethod && <p className="text-xs text-red-500 mt-0.5">{errors.paymentMethod}</p>}
+          </div>
+
+          {/* Prazo de pagamento */}
+          <div>
+            <label className="text-xs font-semibold text-slate-500 mb-1 flex items-center gap-1">
+              <Clock size={12} /> Prazo de pagamento *
+            </label>
+            <input
+              type="text"
+              value={paymentTerms}
+              onChange={(e) => setPaymentTerms(e.target.value)}
+              placeholder="Ex: À vista, 30 dias, 30/60/90 dias..."
+              className={`mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.paymentTerms ? 'border-red-400' : 'border-slate-300'}`}
+            />
+            {errors.paymentTerms && <p className="text-xs text-red-500 mt-0.5">{errors.paymentTerms}</p>}
+          </div>
+
+          {/* Dados bancários do fornecedor */}
+          <div>
+            <label className="text-xs font-semibold text-slate-500 mb-1 flex items-center gap-1">
+              <Building2 size={12} /> Dados bancários do fornecedor (opcional)
+            </label>
+            <textarea
+              value={supplierBankInfo}
+              onChange={(e) => setSupplierBankInfo(e.target.value)}
+              placeholder="Banco, agência, conta, chave PIX..."
+              rows={2}
+              className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
           </div>
 
@@ -143,10 +210,11 @@ export default function FinancialCard({ request, onApprove }: Props) {
             <textarea
               value={observation}
               onChange={(e) => setObservation(e.target.value)}
-              placeholder="Ex: pagamento via boleto 30 dias, verba disponível..."
+              placeholder="Ex: verba disponível, autorização nº..."
               rows={2}
-              className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className={`mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none ${errors.observation ? 'border-red-400' : 'border-slate-300'}`}
             />
+            {errors.observation && <p className="text-xs text-red-500 mt-0.5">{errors.observation}</p>}
           </div>
 
           {error && <p className="text-xs text-red-500">{error}</p>}

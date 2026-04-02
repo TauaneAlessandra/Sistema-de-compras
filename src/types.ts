@@ -50,6 +50,7 @@ export type AuditEventType =
   | 'financial_approved'
   | 'financial_rejected'
   | 'fulfilled_by_stock'
+  | 'os_generated'
 
 // Entrada na linha do tempo de uma solicitação
 export interface AuditEvent {
@@ -78,11 +79,12 @@ export interface SafeUser {
 // Uma cotação feita pelo Comprador com dados de um fornecedor
 export interface Quotation {
   id: string
-  supplier: string       // Nome do fornecedor
-  price: number          // Preço total (number, não string)
-  deliveryDays: number   // Prazo de entrega em dias
+  supplier: string          // Nome do fornecedor
+  price: number             // Preço total (number, não string)
+  deliveryDays: number      // Prazo de entrega em dias
   observations: string
-  buyerId: string        // Quem registrou a cotação
+  supplierAddress?: string  // Endereço/localização do fornecedor (opcional)
+  buyerId: string           // Quem registrou a cotação
   buyerName: string
   createdAt: string
 }
@@ -109,11 +111,24 @@ export interface SupervisorApproval {
 // Dados da aprovação feita pelo Financeiro
 export interface FinancialApproval {
   approved: boolean
-  purchaseDate: string   // Data prevista para a compra (formato YYYY-MM-DD)
+  purchaseDate: string     // Data prevista para a compra (formato YYYY-MM-DD)
+  paymentMethod: string    // Forma de pagamento (ex: "PIX", "Boleto", "Cartão")
+  paymentTerms: string     // Prazo de pagamento (ex: "À vista", "30 dias")
+  supplierBankInfo?: string // Dados bancários do fornecedor (opcional)
   observation: string
   financialId: string
   financialName: string
   approvedAt: string
+}
+
+// Ordem de Serviço gerada automaticamente na aprovação financeira
+export interface ServiceOrder {
+  id: string
+  number: string          // Formato: OS-YYYY-NNN (ex: OS-2026-001)
+  requestId: string       // Referência à solicitação de compra
+  generatedAt: string     // ISO 8601
+  generatedById: string
+  generatedByName: string
 }
 
 // A solicitação de compra principal — agrega tudo

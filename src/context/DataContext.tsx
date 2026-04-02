@@ -11,7 +11,7 @@
 import { createContext, useContext, useState, ReactNode } from 'react'
 import {
   PurchaseRequest, Quotation, SupervisorApproval, FinancialApproval,
-  SafeUser, AuditEvent, AuditEventType,
+  SafeUser, AuditEvent, AuditEventType, ServiceOrder,
 } from '../types'
 import {
   statusAfterCreation,
@@ -23,6 +23,7 @@ import {
   statusAfterStockConfirmation,
 } from '../domain/workflow'
 import { PurchaseRequestRepository } from '../infrastructure/repositories/PurchaseRequestRepository'
+import { ServiceOrderRepository } from '../infrastructure/repositories/ServiceOrderRepository'
 
 // Interface que descreve tudo o que o contexto fornece aos componentes
 interface DataContextValue {
@@ -37,6 +38,8 @@ interface DataContextValue {
   financialApprove: (requestId: string, data: Omit<FinancialApproval, 'financialId' | 'financialName' | 'approvedAt'>, user: SafeUser) => void
   confirmStock: (requestId: string, observation: string, user: SafeUser) => void
   getRequestById: (id: string) => PurchaseRequest | null
+  getServiceOrders: () => ServiceOrder[]
+  getServiceOrderById: (id: string) => ServiceOrder | null
 }
 
 const DataContext = createContext<DataContextValue | null>(null)
@@ -208,13 +211,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
     user: SafeUser
   ) {
     const all = PurchaseRequestRepository.getAll()
+    const financialEvent = makeEvent(
+      data.approved ? 'financial_approved' : 'financial_rejected',
+      user,
+      data.observation
+    )
+
+    let osEvent: AuditEvent | null = null
+    if (data.approved) {
+      const order: ServiceOrder = {
+        id: crypto.randomUUID(),
+        number: ServiceOrderRepository.nextNumber(),
+        requestId,
+        generatedAt: new Date().toISOString(),
+        generatedById: user.id,
+        generatedByName: user.name,
+      }
+      ServiceOrderRepository.add(order)
+      osEvent = makeEvent('os_generated', user, undefined, { osNumber: order.number, osId: order.id })
+    }
+
     saveRequests(all.map((r) => {
       if (r.id !== requestId) return r
-      const event = makeEvent(
-        data.approved ? 'financial_approved' : 'financial_rejected',
-        user,
-        data.observation
-      )
+      const newHistory = [...(r.history ?? []), financialEvent]
+      if (osEvent) newHistory.push(osEvent)
       return {
         ...r,
         status: statusAfterFinancialDecision(data.approved),
@@ -224,7 +244,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           financialName: user.name,
           approvedAt: new Date().toISOString(),
         },
-        history: [...(r.history ?? []), event],
+        history: newHistory,
       }
     }))
   }
@@ -248,12 +268,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return PurchaseRequestRepository.getById(id)
   }
 
+  function getServiceOrders(): ServiceOrder[] {
+    return ServiceOrderRepository.getAll()
+  }
+
+  function getServiceOrderById(id: string): ServiceOrder | null {
+    return ServiceOrderRepository.getById(id)
+  }
+
   return (
     <DataContext.Provider value={{
       requests, loadRequests,
       createRequest, addQuotation, removeQuotation,
       areaApprove, supervisorApprove, financialApprove, confirmStock,
-      getRequestById,
+      getRequestById, getServiceOrders, getServiceOrderById,
     }}>
       {children}
     </DataContext.Provider>

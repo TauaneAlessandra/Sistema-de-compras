@@ -15,7 +15,7 @@ import { useAuth } from '../context/AuthContext'
 import { UserRole } from '../types'
 import {
   LayoutDashboard, ShoppingCart, Users, LogOut, Menu, X,
-  ClipboardList, CheckSquare, BadgeDollarSign,
+  ClipboardList, CheckSquare, BadgeDollarSign, FileText,
 } from 'lucide-react'
 
 // Mapeamento de perfil para nome legível em português
@@ -55,6 +55,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/aprovacao-area', label: 'Aprovação de Área', icon: <CheckSquare size={18} />, roles: ['admin', 'area_manager'] },
   { to: '/aprovacao-supervisor', label: 'Aprovação Supervisor', icon: <CheckSquare size={18} />, roles: ['admin', 'supervisor'] },
   { to: '/aprovacao-financeiro', label: 'Aprovação Financeiro', icon: <BadgeDollarSign size={18} />, roles: ['admin', 'financial'] },
+  { to: '/ordens-servico', label: 'Ordens de Serviço', icon: <FileText size={18} />, roles: ['admin', 'requester', 'area_manager', 'buyer', 'supervisor', 'financial'] },
   { to: '/usuarios', label: 'Usuários', icon: <Users size={18} />, roles: ['admin'] },
 ]
 

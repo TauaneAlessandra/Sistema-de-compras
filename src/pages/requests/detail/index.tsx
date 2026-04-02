@@ -54,6 +54,7 @@ const AUDIT_LABELS: Record<AuditEventType, string> = {
   financial_approved: 'Aprovado pelo financeiro',
   financial_rejected: 'Reprovado pelo financeiro',
   fulfilled_by_stock: 'Atendido por estoque',
+  os_generated: 'Ordem de Serviço gerada',
 }
 
 // Ícone e cor por tipo de evento

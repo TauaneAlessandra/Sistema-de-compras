@@ -21,6 +21,8 @@ import ApprovalArea from './pages/approvals/area'
 import ApprovalSupervisor from './pages/approvals/supervisor'
 import ApprovalFinancial from './pages/approvals/financial'
 import Users from './pages/users'
+import Orders from './pages/orders'
+import OrderDetail from './pages/orders/detail'
 
 export default function App() {
   return (
@@ -54,6 +56,8 @@ export default function App() {
             <Route path="/aprovacao-supervisor" element={<ProtectedRoute roles={['admin', 'supervisor']}><ApprovalSupervisor /></ProtectedRoute>} />
             <Route path="/aprovacao-financeiro" element={<ProtectedRoute roles={['admin', 'financial']}><ApprovalFinancial /></ProtectedRoute>} />
             <Route path="/usuarios" element={<ProtectedRoute roles={['admin']}><Users /></ProtectedRoute>} />
+            <Route path="/ordens-servico" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
+            <Route path="/ordens-servico/:id" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
 
             {/* Rota curinga — qualquer URL não mapeada redireciona para o dashboard */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

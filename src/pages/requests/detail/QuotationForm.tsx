@@ -17,6 +17,7 @@ const quotationSchema = z.object({
   price: z.coerce.number().positive('Deve ser maior que zero'),
   deliveryDays: z.coerce.number().int('Deve ser inteiro').positive('Deve ser maior que zero'),
   observations: z.string(),
+  supplierAddress: z.string(),
 })
 
 // Omit remove os campos gerados automaticamente ao salvar (id, buyerId, etc.)
@@ -31,7 +32,7 @@ interface Props {
 export default function QuotationForm({ onSubmit, onCancel }: Props) {
   // Estado do formulário — todos os valores são strings para o input controlado
   // Serão convertidos para number no momento do submit
-  const [form, setForm] = useState({ supplier: '', price: '', deliveryDays: '', observations: '' })
+  const [form, setForm] = useState({ supplier: '', price: '', deliveryDays: '', observations: '', supplierAddress: '' })
 
   // typeof form retorna o tipo do objeto form — evita redeclarar a interface
   const [errors, setErrors] = useState<Partial<typeof form>>({})
@@ -111,6 +112,18 @@ export default function QuotationForm({ onSubmit, onCancel }: Props) {
             className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
+      </div>
+
+      {/* Endereço do fornecedor — campo opcional, largura total */}
+      <div>
+        <label className="text-xs font-medium text-slate-600">Endereço/localização do fornecedor (opcional)</label>
+        <input
+          type="text"
+          value={form.supplierAddress}
+          onChange={(e) => setForm({ ...form, supplierAddress: e.target.value })}
+          placeholder="Endereço/localização do fornecedor (opcional)"
+          className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
       </div>
 
       {/* Botões */}
