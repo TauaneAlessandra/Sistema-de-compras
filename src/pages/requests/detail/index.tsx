@@ -71,6 +71,7 @@ function AuditIcon({ type }: { type: AuditEventType }) {
     case 'supervisor_rejected':
     case 'financial_rejected': return <XCircle size={14} className={`${base} text-red-500`} />
     case 'fulfilled_by_stock': return <Package size={14} className={`${base} text-teal-600`} />
+    case 'os_generated':       return <ShoppingCart size={14} className={`${base} text-blue-500`} />
   }
 }
 
@@ -171,9 +172,23 @@ export default function RequestDetail() {
             <p className="text-slate-400 text-xs mb-0.5">Quantidade</p>
             <p className="font-semibold text-slate-800">{request.quantity} {request.unit}</p>
           </div>
+          {request.deliveryLocation && (
+            <div>
+              <p className="text-slate-400 text-xs mb-0.5">Local de entrega</p>
+              <p className="font-medium text-slate-800">{request.deliveryLocation}</p>
+            </div>
+          )}
+          {request.deliveryDeadline && (
+            <div>
+              <p className="text-slate-400 text-xs mb-0.5">Prazo de entrega</p>
+              <p className="font-medium text-slate-800">
+                {new Date(request.deliveryDeadline + 'T12:00:00').toLocaleDateString('pt-BR')}
+              </p>
+            </div>
+          )}
           {request.description && (
             <div className="col-span-2 sm:col-span-3">
-              <p className="text-slate-400 text-xs mb-0.5">Descrição</p>
+              <p className="text-slate-400 text-xs mb-0.5">Observação</p>
               <p className="text-slate-700">{request.description}</p>
             </div>
           )}

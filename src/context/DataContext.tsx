@@ -221,7 +221,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (data.approved) {
       const order: ServiceOrder = {
         id: crypto.randomUUID(),
-        number: ServiceOrderRepository.nextNumber(),
+        number: ServiceOrderRepository.generateNumber(user.name),
         requestId,
         generatedAt: new Date().toISOString(),
         generatedById: user.id,

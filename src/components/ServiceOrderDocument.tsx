@@ -73,6 +73,20 @@ export default function ServiceOrderDocument({ order, request }: Props) {
               {URGENCY_LABELS[request.urgency] ?? request.urgency}
             </p>
           </div>
+          {request.deliveryLocation && (
+            <div>
+              <p className="text-xs text-slate-400">Local de entrega</p>
+              <p className="font-medium text-slate-800">{request.deliveryLocation}</p>
+            </div>
+          )}
+          {request.deliveryDeadline && (
+            <div>
+              <p className="text-xs text-slate-400">Prazo de entrega</p>
+              <p className="font-medium text-slate-800">
+                {new Date(request.deliveryDeadline + 'T12:00:00').toLocaleDateString('pt-BR')}
+              </p>
+            </div>
+          )}
           {request.justification && (
             <div className="col-span-2">
               <p className="text-xs text-slate-400">Justificativa</p>

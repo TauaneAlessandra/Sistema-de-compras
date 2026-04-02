@@ -2,14 +2,14 @@
 // infrastructure/repositories/ServiceOrderRepository.ts
 //
 // Persistência de Ordens de Serviço no localStorage.
-// O contador sequencial (sc_os_counter) garante numeração
-// única e incremental por ano: OS-2026-001, OS-2026-002...
+// O número da OS é gerado a partir do nome do usuário + timestamp:
+// Formato: {nome_usuario}_{MM}:{DD}:{YYYY}/{HH}:{mm}:{ss}
+// Exemplo: JoaoSilva_04:02:2026/09:30:45
 // ============================================================
 
 import { ServiceOrder } from '../../types'
 
 const STORAGE_KEY = 'sc_orders'
-const COUNTER_KEY = 'sc_os_counter'
 
 export const ServiceOrderRepository = {
   /** Carrega todas as ordens de serviço do storage */
@@ -35,13 +35,27 @@ export const ServiceOrderRepository = {
   },
 
   /**
-   * Gera o próximo número de OS no formato OS-YYYY-NNN.
-   * O contador persiste no localStorage para sobreviver a reloads.
+   * Gera o número da OS a partir do nome do usuário e do momento atual.
+   * Formato: {nome_usuario}_{MM}:{DD}:{YYYY}/{HH}:{mm}:{ss}
+   * Exemplo: JoaoSilva_04:02:2026/09:30:45
+   *
+   * O nome é normalizado: acentos removidos, espaços removidos.
    */
-  nextNumber(): string {
-    const current = Number(localStorage.getItem(COUNTER_KEY) ?? '0') + 1
-    localStorage.setItem(COUNTER_KEY, String(current))
-    const year = new Date().getFullYear()
-    return `OS-${year}-${String(current).padStart(3, '0')}`
+  generateNumber(userName: string): string {
+    // Remove acentos (NFD decompõe, então filtramos os diacríticos U+0300–U+036F)
+    const name = userName
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, '')
+
+    const now = new Date()
+    const mm = String(now.getMonth() + 1).padStart(2, '0')
+    const dd = String(now.getDate()).padStart(2, '0')
+    const yyyy = now.getFullYear()
+    const hh = String(now.getHours()).padStart(2, '0')
+    const min = String(now.getMinutes()).padStart(2, '0')
+    const ss = String(now.getSeconds()).padStart(2, '0')
+
+    return `${name}_${mm}:${dd}:${yyyy}/${hh}:${min}:${ss}`
   },
 }

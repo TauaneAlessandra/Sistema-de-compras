@@ -148,6 +148,9 @@ export interface PurchaseRequest {
   requesterName: string
   createdAt: string
 
+  deliveryLocation: string                      // Local de entrega
+  deliveryDeadline: string                      // Prazo de entrega desejado (YYYY-MM-DD)
+
   // Controle do fluxo de aprovação da área
   needsAreaApproval: boolean                    // true se solicitante não é area_manager
   areaApproval: AreaApproval | null             // null até o responsável da área agir

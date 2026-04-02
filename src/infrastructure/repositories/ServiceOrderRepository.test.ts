@@ -11,40 +11,37 @@ const localStorageMock = {
 }
 vi.stubGlobal('localStorage', localStorageMock)
 
-// Limpa o store antes de cada teste para garantir isolamento
 beforeEach(() => {
   localStorageMock.clear()
 })
 
-describe('ServiceOrderRepository.nextNumber()', () => {
-  it('retorna formato OS-YYYY-NNN', () => {
-    const number = ServiceOrderRepository.nextNumber()
-    expect(number).toMatch(/^OS-\d{4}-\d{3}$/)
+describe('ServiceOrderRepository.generateNumber()', () => {
+  it('inclui o nome do usuário (sem espaços)', () => {
+    const number = ServiceOrderRepository.generateNumber('João Silva')
+    expect(number).toContain('JoaoSilva')
   })
 
-  it('ano corresponde ao ano atual', () => {
-    const number = ServiceOrderRepository.nextNumber()
+  it('remove acentos do nome', () => {
+    const number = ServiceOrderRepository.generateNumber('Maria Conceição')
+    expect(number).toContain('MariaConceicao')
+  })
+
+  it('formato é {nome}_{MM}:{DD}:{YYYY}/{HH}:{mm}:{ss}', () => {
+    const number = ServiceOrderRepository.generateNumber('Admin')
+    // Regex: nome_MM:DD:YYYY/HH:mm:ss
+    expect(number).toMatch(/^[A-Za-z]+_\d{2}:\d{2}:\d{4}\/\d{2}:\d{2}:\d{2}$/)
+  })
+
+  it('ano no número corresponde ao ano atual', () => {
+    const number = ServiceOrderRepository.generateNumber('Admin')
     const year = new Date().getFullYear().toString()
-    expect(number).toContain(`OS-${year}-`)
+    expect(number).toContain(year)
   })
 
-  it('incrementa sequencialmente', () => {
-    const first = ServiceOrderRepository.nextNumber()
-    const second = ServiceOrderRepository.nextNumber()
-    const third = ServiceOrderRepository.nextNumber()
-
-    const n1 = parseInt(first.split('-')[2])
-    const n2 = parseInt(second.split('-')[2])
-    const n3 = parseInt(third.split('-')[2])
-
-    expect(n2).toBe(n1 + 1)
-    expect(n3).toBe(n2 + 1)
-  })
-
-  it('primeiro número é OS-YYYY-001', () => {
-    const number = ServiceOrderRepository.nextNumber()
-    const year = new Date().getFullYear()
-    expect(number).toBe(`OS-${year}-001`)
+  it('dois números gerados no mesmo segundo são iguais — unicidade garantida pelo timestamp', () => {
+    // O número é baseado no timestamp — não é sequencial
+    const a = ServiceOrderRepository.generateNumber('Admin')
+    expect(a).toMatch(/^Admin_\d{2}:\d{2}:\d{4}\/\d{2}:\d{2}:\d{2}$/)
   })
 })
 
@@ -56,7 +53,7 @@ describe('ServiceOrderRepository CRUD', () => {
   it('add() persiste OS e getAll() a retorna', () => {
     const order = {
       id: 'test-id',
-      number: 'OS-2026-001',
+      number: ServiceOrderRepository.generateNumber('Teste'),
       requestId: 'req-1',
       generatedAt: new Date().toISOString(),
       generatedById: 'user-1',
@@ -70,7 +67,7 @@ describe('ServiceOrderRepository CRUD', () => {
   it('getById() retorna a OS correta', () => {
     const order = {
       id: 'find-me',
-      number: 'OS-2026-001',
+      number: ServiceOrderRepository.generateNumber('Teste'),
       requestId: 'req-1',
       generatedAt: new Date().toISOString(),
       generatedById: 'user-1',

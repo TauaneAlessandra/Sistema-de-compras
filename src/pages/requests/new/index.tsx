@@ -14,7 +14,7 @@ import { z } from 'zod'
 import { useData } from '../../../context/DataContext'
 import { useAuth } from '../../../context/AuthContext'
 import { UrgencyLevel } from '../../../types'
-import { ShoppingCart, ArrowLeft, CheckCircle2, ImagePlus, X, Crop } from 'lucide-react'
+import { ShoppingCart, ArrowLeft, CheckCircle2, ImagePlus, X, Crop, MapPin, Calendar } from 'lucide-react'
 import ImageCropper from '../../../components/ImageCropper'
 
 const newRequestSchema = z.object({
@@ -24,6 +24,8 @@ const newRequestSchema = z.object({
   unit: z.string().min(1, 'Campo obrigatório'),
   urgency: z.enum(['low', 'medium', 'urgent'] as const),
   justification: z.string(),
+  deliveryLocation: z.string().min(2, 'Informe o local de entrega'),
+  deliveryDeadline: z.string().min(1, 'Informe o prazo de entrega'),
 }).superRefine((data, ctx) => {
   if (data.urgency === 'urgent' && !data.justification.trim()) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Justificativa obrigatória para urgência Urgente', path: ['justification'] })
@@ -51,6 +53,8 @@ interface FormState {
   unit: string
   urgency: UrgencyLevel
   justification: string
+  deliveryLocation: string
+  deliveryDeadline: string
 }
 
 export default function NewRequest() {
@@ -68,6 +72,7 @@ export default function NewRequest() {
   // Estado inicial do formulário
   const [form, setForm] = useState<FormState>({
     title: '', description: '', quantity: '', unit: '', urgency: 'medium', justification: '',
+    deliveryLocation: '', deliveryDeadline: '',
   })
 
   // Errors: objeto com as mesmas chaves do FormState, com mensagens de erro
@@ -100,7 +105,7 @@ export default function NewRequest() {
     // imageUrl usa o operador "??" — se croppedImage for null, passa undefined
     createRequest(
       { ...form, quantity: Number(form.quantity), imageUrl: croppedImage ?? undefined },
-      user!,
+      user!
     )
     setSuccess(true)
     // Redireciona após 2 segundos para o usuário ver a mensagem de sucesso
@@ -207,15 +212,15 @@ export default function NewRequest() {
               {errors.title && <p className="text-xs text-red-500 mt-1">{errors.title}</p>}
             </div>
 
-            {/* Campo: Descrição */}
+            {/* Campo: Observação / onde será utilizado */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                Descrição / Especificações
+                Observação <span className="font-normal text-slate-400 text-xs">(onde será utilizado)</span>
               </label>
               <textarea
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
-                placeholder="Descreva as especificações do item..."
+                placeholder="Descreva onde e como o item será utilizado..."
                 rows={3}
                 className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               />
@@ -287,6 +292,36 @@ export default function NewRequest() {
                 className={`w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none ${errors.justification ? 'border-red-400' : 'border-slate-300'}`}
               />
               {errors.justification && <p className="text-xs text-red-500 mt-1">{errors.justification}</p>}
+            </div>
+
+            {/* Campos: Local de entrega + Prazo de entrega */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <span className="flex items-center gap-1"><MapPin size={14} />Local de entrega <span className="text-red-500">*</span></span>
+                </label>
+                <input
+                  type="text"
+                  value={form.deliveryLocation}
+                  onChange={(e) => setForm({ ...form, deliveryLocation: e.target.value })}
+                  placeholder="Ex: Almoxarifado, Sala 201, Recepção..."
+                  className={`w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.deliveryLocation ? 'border-red-400' : 'border-slate-300'}`}
+                />
+                {errors.deliveryLocation && <p className="text-xs text-red-500 mt-1">{errors.deliveryLocation}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <span className="flex items-center gap-1"><Calendar size={14} />Prazo de entrega <span className="text-red-500">*</span></span>
+                </label>
+                <input
+                  type="date"
+                  value={form.deliveryDeadline}
+                  onChange={(e) => setForm({ ...form, deliveryDeadline: e.target.value })}
+                  min={new Date().toISOString().split('T')[0]}
+                  className={`w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.deliveryDeadline ? 'border-red-400' : 'border-slate-300'}`}
+                />
+                {errors.deliveryDeadline && <p className="text-xs text-red-500 mt-1">{errors.deliveryDeadline}</p>}
+              </div>
             </div>
 
             {/* Campo: Upload de imagem */}
