@@ -46,12 +46,25 @@ export function canApproveFinancial(status: RequestStatus): boolean {
 // ── Transições de status ────────────────────────────────────
 
 /**
- * Calcula o status inicial de uma solicitação após a criação.
+ * Status inicial de qualquer solicitação criada: sempre 'draft'.
+ * O solicitante precisa submeter explicitamente para avançar no fluxo.
+ */
+export function statusAfterCreation(): RequestStatus {
+  return 'draft'
+}
+
+/**
+ * Calcula o próximo status após o solicitante submeter o rascunho.
  * Se o solicitante é area_manager, vai direto para pending_quotation.
  * Caso contrário, passa por pending_area_approval.
  */
-export function statusAfterCreation(isAreaManager: boolean): RequestStatus {
+export function statusAfterSubmission(isAreaManager: boolean): RequestStatus {
   return isAreaManager ? 'pending_quotation' : 'pending_area_approval'
+}
+
+/** Uma solicitação em rascunho pode ser submetida pelo seu criador */
+export function canSubmitRequest(status: RequestStatus): boolean {
+  return status === 'draft'
 }
 
 /**

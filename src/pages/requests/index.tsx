@@ -25,7 +25,7 @@ interface StatusInfo { label: string; color: string; icon: ReactNode }
 interface UrgencyInfo { label: string; color: string }
 
 const STATUS_MAP: Record<RequestStatus, StatusInfo> = {
-  created: { label: 'Criado', color: 'bg-slate-100 text-slate-600', icon: <Clock size={12} /> },
+  draft: { label: 'Rascunho', color: 'bg-slate-100 text-slate-500', icon: <Clock size={12} /> },
   pending_area_approval: { label: 'Aguard. Área', color: 'bg-orange-100 text-orange-700', icon: <Clock size={12} /> },
   pending_quotation: { label: 'Aguard. Cotação', color: 'bg-yellow-100 text-yellow-700', icon: <Clock size={12} /> },
   pending_supervisor: { label: 'Aguard. Supervisor', color: 'bg-blue-100 text-blue-700', icon: <FileSearch size={12} /> },
@@ -108,7 +108,7 @@ export default function Requests() {
           className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="all">Todos os status</option>
-          <option value="created">Criado</option>
+          <option value="draft">Rascunho</option>
           <option value="pending_area_approval">Aguard. Área</option>
           <option value="pending_quotation">Aguard. Cotação</option>
           <option value="pending_supervisor">Aguard. Supervisor</option>

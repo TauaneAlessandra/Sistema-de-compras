@@ -15,6 +15,7 @@ import {
 } from '../types'
 import {
   statusAfterCreation,
+  statusAfterSubmission,
   statusAfterAreaDecision,
   statusAfterAddQuotation,
   statusAfterRemoveQuotation,
@@ -36,6 +37,7 @@ interface DataContextValue {
   areaApprove: (requestId: string, data: { approved: boolean; observation: string }, user: SafeUser) => void
   supervisorApprove: (requestId: string, data: Omit<SupervisorApproval, 'supervisorId' | 'supervisorName' | 'approvedAt'>, user: SafeUser) => void
   financialApprove: (requestId: string, data: Omit<FinancialApproval, 'financialId' | 'financialName' | 'approvedAt'>, user: SafeUser) => void
+  submitRequest: (requestId: string, user: SafeUser) => void
   confirmStock: (requestId: string, observation: string, user: SafeUser) => void
   getRequestById: (id: string) => PurchaseRequest | null
   getServiceOrders: () => ServiceOrder[]
@@ -85,7 +87,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const newReq: PurchaseRequest = {
       ...data,
       id: crypto.randomUUID(),
-      status: statusAfterCreation(isAreaManager),
+      status: statusAfterCreation(),        // sempre 'draft'
       requesterId: user.id,
       requesterName: user.name,
       createdAt: new Date().toISOString(),
@@ -100,6 +102,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
     PurchaseRequestRepository.add(newReq)
     setRequests(PurchaseRequestRepository.getAll())
     return newReq
+  }
+
+  function submitRequest(requestId: string, user: SafeUser) {
+    const all = PurchaseRequestRepository.getAll()
+    saveRequests(all.map((r) => {
+      if (r.id !== requestId) return r
+      const isAreaManager = user.role === 'area_manager'
+      const event = makeEvent('submitted', user)
+      return {
+        ...r,
+        status: statusAfterSubmission(isAreaManager),
+        history: [...(r.history ?? []), event],
+      }
+    }))
   }
 
   function addQuotation(
@@ -279,7 +295,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   return (
     <DataContext.Provider value={{
       requests, loadRequests,
-      createRequest, addQuotation, removeQuotation,
+      createRequest, submitRequest, addQuotation, removeQuotation,
       areaApprove, supervisorApprove, financialApprove, confirmStock,
       getRequestById, getServiceOrders, getServiceOrderById,
     }}>

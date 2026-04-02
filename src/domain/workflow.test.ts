@@ -6,6 +6,8 @@ import {
   canApproveSupervisor,
   canApproveFinancial,
   statusAfterCreation,
+  statusAfterSubmission,
+  canSubmitRequest,
   statusAfterAreaDecision,
   statusAfterAddQuotation,
   statusAfterRemoveQuotation,
@@ -26,12 +28,32 @@ import type { AuditEvent, AuditEventType } from '../types'
 // ── Transições de status ────────────────────────────────────
 
 describe('statusAfterCreation', () => {
+  it('sempre retorna draft independente do perfil', () => {
+    expect(statusAfterCreation()).toBe('draft')
+  })
+})
+
+describe('statusAfterSubmission', () => {
   it('vai para pending_quotation quando solicitante é area_manager', () => {
-    expect(statusAfterCreation(true)).toBe('pending_quotation')
+    expect(statusAfterSubmission(true)).toBe('pending_quotation')
   })
 
   it('vai para pending_area_approval quando solicitante não é area_manager', () => {
-    expect(statusAfterCreation(false)).toBe('pending_area_approval')
+    expect(statusAfterSubmission(false)).toBe('pending_area_approval')
+  })
+})
+
+describe('canSubmitRequest', () => {
+  it('permite submit apenas quando draft', () => {
+    expect(canSubmitRequest('draft')).toBe(true)
+  })
+
+  it('bloqueia submit em qualquer outro status', () => {
+    const others: import('../types').RequestStatus[] = [
+      'pending_area_approval', 'pending_quotation', 'pending_supervisor',
+      'pending_financial', 'approved', 'rejected', 'fulfilled_by_stock',
+    ]
+    others.forEach((s) => expect(canSubmitRequest(s)).toBe(false))
   })
 })
 
@@ -105,7 +127,7 @@ describe('canAddQuotation', () => {
   })
 
   it('bloqueia adicionar em outros status', () => {
-    expect(canAddQuotation('created')).toBe(false)
+    expect(canAddQuotation('draft')).toBe(false)
     expect(canAddQuotation('pending_area_approval')).toBe(false)
     expect(canAddQuotation('pending_financial')).toBe(false)
     expect(canAddQuotation('approved')).toBe(false)
@@ -137,7 +159,7 @@ describe('canApproveArea', () => {
   })
 
   it('bloqueia em qualquer outro status', () => {
-    expect(canApproveArea('created')).toBe(false)
+    expect(canApproveArea('draft')).toBe(false)
     expect(canApproveArea('pending_quotation')).toBe(false)
     expect(canApproveArea('pending_supervisor')).toBe(false)
     expect(canApproveArea('approved')).toBe(false)
@@ -315,13 +337,14 @@ describe('AuditEvent type', () => {
 
   it('cobre todos os valores de AuditEventType', () => {
     const allTypes: AuditEventType[] = [
-      'created', 'area_approved', 'area_rejected',
+      'created', 'submitted',
+      'area_approved', 'area_rejected',
       'quotation_added', 'quotation_removed',
       'supervisor_approved', 'supervisor_rejected',
       'financial_approved', 'financial_rejected',
-      'fulfilled_by_stock',
+      'fulfilled_by_stock', 'os_generated',
     ]
-    expect(allTypes).toHaveLength(10)
+    expect(allTypes).toHaveLength(12)
     allTypes.forEach((type) => {
       const e: AuditEvent = { id: '1', type, actorId: '1', actorName: 'X', actorRole: 'admin', timestamp: '' }
       expect(e.type).toBe(type)

@@ -10,11 +10,11 @@
 // O TypeScript vai garantir que só esses valores sejam usados.
 export type UserRole = 'admin' | 'requester' | 'area_manager' | 'buyer' | 'supervisor' | 'financial'
 
-// Os status possíveis de uma solicitação, seguindo o fluxo completo do sistema:
-// created → pending_area_approval? → pending_quotation → pending_supervisor → pending_financial → approved/rejected
+// Os status possíveis de uma solicitação, seguindo o fluxo oficial:
+// draft → pending_area_approval? → pending_quotation → pending_supervisor → pending_financial → approved/rejected
 // Saída alternativa: fulfilled_by_stock (compras informa estoque disponível)
 export type RequestStatus =
-  | 'created'
+  | 'draft'                   // Rascunho: criado mas ainda não submetido pelo solicitante
   | 'pending_area_approval'
   | 'pending_quotation'
   | 'pending_supervisor'
@@ -41,6 +41,7 @@ export interface User {
 // Tipos de evento de auditoria — cada ação de negócio gera um desses
 export type AuditEventType =
   | 'created'
+  | 'submitted'
   | 'area_approved'
   | 'area_rejected'
   | 'quotation_added'

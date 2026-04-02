@@ -26,7 +26,7 @@ interface StatusInfo { label: string; color: string; icon: ReactNode }
 interface UrgencyInfo { label: string; color: string }
 
 const STATUS_MAP: Record<RequestStatus, StatusInfo> = {
-  created: { label: 'Criado', color: 'bg-slate-100 text-slate-600 border-slate-200', icon: <Clock size={14} /> },
+  draft: { label: 'Rascunho', color: 'bg-slate-100 text-slate-500 border-slate-200', icon: <Clock size={14} /> },
   pending_area_approval: { label: 'Aguardando Área', color: 'bg-orange-100 text-orange-700 border-orange-200', icon: <Clock size={14} /> },
   pending_quotation: { label: 'Aguardando Cotação', color: 'bg-yellow-100 text-yellow-700 border-yellow-200', icon: <Clock size={14} /> },
   pending_supervisor: { label: 'Aguardando Supervisor', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: <FileSearch size={14} /> },
@@ -45,6 +45,7 @@ const URGENCY: Record<UrgencyLevel, UrgencyInfo> = {
 // Rótulos legíveis para cada tipo de evento de auditoria
 const AUDIT_LABELS: Record<AuditEventType, string> = {
   created: 'Solicitação criada',
+  submitted: 'Solicitação submetida',
   area_approved: 'Aprovado pela área',
   area_rejected: 'Reprovado pela área',
   quotation_added: 'Cotação adicionada',
@@ -62,6 +63,7 @@ function AuditIcon({ type }: { type: AuditEventType }) {
   const base = 'shrink-0'
   switch (type) {
     case 'created':            return <Plus size={14} className={`${base} text-slate-500`} />
+    case 'submitted':          return <ShoppingCart size={14} className={`${base} text-blue-600`} />
     case 'quotation_added':    return <DollarSign size={14} className={`${base} text-blue-500`} />
     case 'quotation_removed':  return <Trash2 size={14} className={`${base} text-slate-400`} />
     case 'area_approved':
@@ -79,7 +81,7 @@ export default function RequestDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { getRequestById, addQuotation, removeQuotation, confirmStock, loadRequests } = useData()
+  const { getRequestById, submitRequest, addQuotation, removeQuotation, confirmStock, loadRequests } = useData()
 
   const [request, setRequest] = useState(getRequestById(id!))
   const [showQuotationForm, setShowQuotationForm] = useState(false)
@@ -115,6 +117,9 @@ export default function RequestDetail() {
   const canConfirmStock =
     (user?.role === 'buyer' || user?.role === 'admin') && request.status === 'pending_quotation'
 
+  // Apenas o criador da solicitação pode submeter um rascunho
+  const canSubmit = request.status === 'draft' && request.requesterId === user?.id
+
   function handleAddQuotation(data: Omit<Quotation, 'id' | 'buyerId' | 'buyerName' | 'createdAt'>) {
     addQuotation(request!.id, data, user!)
     setShowQuotationForm(false)
@@ -126,6 +131,12 @@ export default function RequestDetail() {
       removeQuotation(request!.id, qid, user!)
       refresh()
     }
+  }
+
+  function handleSubmitRequest() {
+    if (!confirm('Submeter esta solicitação para aprovação?')) return
+    submitRequest(request!.id, user!)
+    refresh()
   }
 
   function handleConfirmStock() {
@@ -210,6 +221,24 @@ export default function RequestDetail() {
           </div>
         )}
       </div>
+
+      {/* ── Bloco de submissão — visível apenas em rascunho para o criador ── */}
+      {canSubmit && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-blue-800">Rascunho</p>
+            <p className="text-xs text-blue-600 mt-0.5">
+              Esta solicitação ainda não foi submetida. Revise os dados e clique em Submeter para iniciar o fluxo de aprovação.
+            </p>
+          </div>
+          <button
+            onClick={handleSubmitRequest}
+            className="shrink-0 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition-colors"
+          >
+            <ShoppingCart size={15} /> Submeter Solicitação
+          </button>
+        </div>
+      )}
 
       {/* ── Card aprovação de área (T06) ── */}
       {request.areaApproval && (

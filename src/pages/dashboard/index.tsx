@@ -28,7 +28,7 @@ interface StatusInfo {
 }
 
 const STATUS_MAP: Record<RequestStatus, StatusInfo> = {
-  created: { label: 'Criado', color: 'bg-slate-100 text-slate-600', icon: <ClipboardList size={14} /> },
+  draft: { label: 'Rascunho', color: 'bg-slate-100 text-slate-500', icon: <ClipboardList size={14} /> },
   pending_area_approval: { label: 'Aguard. Área', color: 'bg-orange-100 text-orange-700', icon: <Clock size={14} /> },
   pending_quotation: { label: 'Aguard. Cotação', color: 'bg-yellow-100 text-yellow-700', icon: <Clock size={14} /> },
   pending_supervisor: { label: 'Aguard. Supervisor', color: 'bg-blue-100 text-blue-700', icon: <FileSearch size={14} /> },
@@ -66,7 +66,7 @@ function buildStats(requests: ReturnType<typeof Array.prototype.filter>) {
 // Labels do título da lista conforme o filtro ativo
 const FILTER_LABELS: Record<FilterKey, string> = {
   all: 'Todas as Solicitações',
-  created: 'Criadas',
+  draft: 'Rascunhos',
   pending_area_approval: 'Aguardando Área',
   pending_quotation: 'Aguardando Cotação',
   pending_supervisor: 'Aguardando Supervisor',
