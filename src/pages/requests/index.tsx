@@ -49,10 +49,12 @@ export default function Requests() {
 
   useEffect(() => { loadRequests() }, [])
 
-  // Filtra as solicitações visíveis conforme o perfil do usuário
-  let visible = user!.role === 'requester' || user!.role === 'area_manager'
-    ? requests.filter((r) => r.requesterId === user!.id)  // solicitante: só as suas
-    : requests                                              // outros: todas
+  // Filtra as solicitações visíveis conforme o perfil do usuário:
+  // - Solicitante: apenas as próprias (conforme spec de permissões)
+  // - Todos os outros perfis: todas as solicitações
+  let visible = user!.role === 'requester'
+    ? requests.filter((r) => r.requesterId === user!.id)
+    : requests
 
   // Filtro de busca por texto — toLowerCase para busca case-insensitive
   if (search.trim()) {

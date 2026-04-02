@@ -23,8 +23,8 @@ const ROLE_LABELS: Record<UserRole, string> = {
   admin: 'Administrador',
   requester: 'Solicitante',
   area_manager: 'Resp. de Área',
-  buyer: 'Comprador',
-  supervisor: 'Supervisor',
+  buyer: 'Compras',
+  supervisor: 'Dir. Financeiro',
   financial: 'Financeiro',
 }
 
@@ -53,7 +53,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/solicitacoes', label: 'Solicitações', icon: <ClipboardList size={18} />, roles: ['admin', 'requester', 'area_manager', 'buyer', 'supervisor', 'financial'] },
   { to: '/nova-solicitacao', label: 'Nova Solicitação', icon: <ShoppingCart size={18} />, roles: ['admin', 'requester', 'area_manager'] },
   { to: '/aprovacao-area', label: 'Aprovação de Área', icon: <CheckSquare size={18} />, roles: ['admin', 'area_manager'] },
-  { to: '/aprovacao-supervisor', label: 'Aprovação Supervisor', icon: <CheckSquare size={18} />, roles: ['admin', 'supervisor'] },
+  { to: '/aprovacao-supervisor', label: 'Aprovação Dir. Financeiro', icon: <CheckSquare size={18} />, roles: ['admin', 'supervisor'] },
   { to: '/aprovacao-financeiro', label: 'Aprovação Financeiro', icon: <BadgeDollarSign size={18} />, roles: ['admin', 'financial'] },
   { to: '/ordens-servico', label: 'Ordens de Serviço', icon: <FileText size={18} />, roles: ['admin', 'requester', 'area_manager', 'buyer', 'supervisor', 'financial'] },
   { to: '/usuarios', label: 'Usuários', icon: <Users size={18} />, roles: ['admin'] },
